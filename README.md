@@ -6,9 +6,11 @@ gate**.
 
 One process, no dependencies: 20 simulated vending machines, a cloud API, and a dashboard.
 
-- **Live demo:** `https://<deployed-url>` — _hosted on a free tier, so the first load can take
-  ~30–60 s if the instance is waking up. Keep the tab open: the simulation clock only advances
-  while someone is polling (see "What is faked")._
+- **Live demo:** https://zikazama.github.io/snackbox-fleet-demo/ — hosted on GitHub Pages as a
+  **static in-browser build**: the same simulator and cloud logic runs in the page
+  (`public/engine.js`), the store is in-memory (`browser-memory` chip), and the simulation clock
+  only advances while the tab is open and polling. For the *real* server build — SQLite
+  (`node:sqlite`) on disk, see `lib/db.js` — run it locally with one command (see "How it runs").
 - **Local, one command:** `docker compose up --build`, or `npm start` / `make run` if you have
   Node 22.5+.
 
@@ -55,6 +57,13 @@ docker compose up --build # same thing, in a container
 npm test                  # node --test, no dependencies
 ```
 
+Open `http://localhost:8080` for the dashboard; it talks to the real HTTP API in that process.
+
+On GitHub Pages (`https://zikazama.github.io/snackbox-fleet-demo/`) the page is served as static
+files: `public/shim.js` intercepts `/api/*` and answers in-process via `public/engine.js`, a port
+of `lib/world.js` + `lib/router.js` with the store always in memory. Append `?inprocess=1` to the
+URL locally to force the same static path instead of the real server.
+
 Environment variables (all optional):
 
 | Var | Default | Meaning |
@@ -67,12 +76,16 @@ Environment variables (all optional):
 
 ```
 cmd-less by design — one process, three layers
+├── index.html           repo-root redirect to ./public/ (GitHub Pages entry point)
 ├── server.js            node:http entrypoint (local + Docker) + 250 ms sim ticker
 ├── api/index.js         Vercel serverless entrypoint, same router
+├── netlify/functions/   Netlify serverless entrypoint, same router (v2 API)
 ├── lib/router.js        HTTP routes -> world actions
 ├── lib/world.js         cloud state + simulated fleet + promo pricing + OTA gate
 ├── lib/db.js            SQLite store (node:sqlite, WAL) with an in-memory fallback
 ├── public/index.html    dashboard, vanilla JS, polls /api/state every second
+├── public/shim.js       static (Pages) build only: answers /api/* in-process
+├── public/engine.js     static build only: port of world.js + router.js (browser)
 └── test/core.test.js    pricing, idempotency, outbox, rollout gate
 ```
 
@@ -118,6 +131,10 @@ Key implementation decisions:
 - Sales are random, not a demand model; prices are synthetic `$`.
 - State is in memory per serverless instance. On a free tier an instance is recycled now and
   then, and the demo re-seeds itself — that is also what `Reset demo` does.
+- The public GitHub Pages build is **not a deployment of the server build**: there is no backend,
+  no SQLite file, nothing survives a reload, and the clock only moves while a tab polls
+  `/api/state`. It exists because free Docker/serverless hosts for this project all required a
+  payment method or were otherwise unavailable (see Notes). `npm start` runs the real thing.
 
 ## What I would do next
 
@@ -138,6 +155,22 @@ Key implementation decisions:
 6. **Observability.** `duplicate_events_total`, `outbox_depth`, `machine_offline_seconds`,
    `ingest_lag_seconds` as first-class metrics — the demo shows the numbers a real dashboard
    would need.
+
+## Deployment
+
+- **Local / Docker (real build):** source of truth for the HTTP contract. SQLite on disk, the
+  simulator and the API in one Node process.
+- **GitHub Pages (what the link opens):** static export of the same logic. `public/index.html`
+  is identical to the local dashboard; on Pages, `public/shim.js` serves `/api/*` in-process from
+  `public/engine.js`. Uploading to the repo and enabling Pages from `main` is all the deployment
+  is — no secrets, no servers.
+- **Serverless entrypoints kept for reference:** `api/index.js` (Vercel), `netlify/functions/api.mjs`.
+  Neither was deployable with the accounts available: GCP `impactful-web-512106-c6` is shut down
+  and the `fauzi.fadman@gmail.com` account has no billing account; the Vercel team is blocked by
+  fair-use limits; Render requires a card even for the free plan; the Netlify GitHub authorization
+  failed with `You can't perform that action at this time`; Hugging Face Docker Spaces need a paid
+  plan here. If any of those unblocks, the entrypoints are ready — and the local build is the
+  intended way to see it run anyway.
 
 ## Notes
 
