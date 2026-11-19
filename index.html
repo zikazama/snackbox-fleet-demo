@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SnackBox · Fleet Control (demo)</title>
+<style>
+  :root {
+    --bg: #0a0e14;
+    --panel: #101722;
+    --panel-2: #0d1420;
+    --line: #1d2836;
+    --text: #e6edf6;
+    --muted: #8296ad;
+    --blue: #38bdf8;
+    --green: #34d399;
+    --red: #f87171;
+    --amber: #fbbf24;
+    --purple: #c084fc;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: radial-gradient(1200px 600px at 20% -10%, #12202f 0%, var(--bg) 55%) no-repeat, var(--bg);
+    color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: 18px 20px 60px;
+  }
+  h1, h2, h3 { margin: 0; font-weight: 650; letter-spacing: -0.01em; }
+  h1 { font-size: 18px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  a { color: var(--blue); }
+
+  header.top {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding-bottom: 14px; margin-bottom: 16px; border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; }
+  .brand .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); }
+  .brand small { color: var(--muted); }
+  .spacer { flex: 1; }
+  .chip {
+    font-family: var(--mono); font-size: 12px; color: var(--muted);
+    border: 1px solid var(--line); background: var(--panel-2);
+    padding: 4px 8px; border-radius: 6px; white-space: nowrap;
+  }
+  .chip b { color: var(--text); font-weight: 600; }
+  .chip.ok b { color: var(--green); }
+  .chip.bad b { color: var(--red); }
+
+  .grid { display: grid; gap: 12px; }
+  .controls { grid-template-columns: 1.1fr 1.3fr 1fr; margin-bottom: 12px; }
+  @media (max-width: 1100px) { .controls { grid-template-columns: 1fr; } }
+
+  .card {
+    background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .card > h2 { margin-bottom: 10px; }
+
+  .clock { font-family: var(--mono); font-size: 30px; font-weight: 600; letter-spacing: -0.02em; }
+  .clock small { font-size: 12px; color: var(--muted); font-weight: 400; display: block; margin-top: 2px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .row + .row { margin-top: 8px; }
+  .row label { color: var(--muted); font-size: 12px; min-width: 62px; }
+
+  button, select, input {
+    font: inherit; color: var(--text);
+    background: #16202e; border: 1px solid #26364a; border-radius: 7px;
+    padding: 6px 10px; outline: none;
+  }
+  button { cursor: pointer; transition: border-color .12s, background .12s; }
+  button:hover { border-color: #3b5876; background: #1b2836; }
+  button.primary { background: #0e4b6b; border-color: #1d7fa6; color: #e8f7ff; }
+  button.primary:hover { background: #12628a; }
+  button.danger { border-color: #6b2323; color: #ffd9d9; background: #2a1315; }
+  button.ghost { background: transparent; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  input[type="time"], input[type="number"] { font-family: var(--mono); }
+  input[type="number"] { width: 62px; }
+  .switch { display: inline-flex; gap: 8px; align-items: center; cursor: pointer; user-select: none; }
+  .switch input { width: 16px; height: 16px; accent-color: var(--red); }
+
+  .kpis { grid-template-columns: repeat(6, 1fr); margin-bottom: 12px; }
+  @media (max-width: 1100px) { .kpis { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 620px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+  .kpi { padding: 12px 14px; }
+  .kpi .label { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+  .kpi .value { font-family: var(--mono); font-size: 22px; font-weight: 600; margin-top: 4px; }
+  .kpi .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .kpi.hot .value { color: var(--purple); }
+  .kpi.warn .value { color: var(--amber); }
+
+  .main { grid-template-columns: minmax(0, 1fr) 380px; align-items: start; }
+  @media (max-width: 1100px) { .main { grid-template-columns: 1fr; } }
+
+  .fleet { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  @media (max-width: 1400px) { .fleet { grid-template-columns: repeat(4, minmax(0,1fr)); } }
+  @media (max-width: 900px) { .fleet { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+
+  .machine {
+    border: 1px solid var(--line); border-radius: 9px; padding: 10px;
+    background: #0e1622; position: relative; overflow: hidden;
+  }
+  .machine.online { border-left: 3px solid var(--green); }
+  .machine.offline { border-left: 3px solid var(--red); }
+  .machine.faulted { border-left: 3px solid var(--amber); background: #1a1408; }
+  .machine .mid { font-family: var(--mono); font-weight: 600; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+  .machine .badge { font-size: 9px; letter-spacing: .08em; padding: 2px 5px; border-radius: 4px; text-transform: uppercase; }
+  .badge.on { background: #10312a; color: var(--green); }
+  .badge.off { background: #33161a; color: var(--red); }
+  .badge.fault { background: #3a2a07; color: var(--amber); }
+  .machine .meta { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 6px; display: grid; grid-template-columns: 1fr 1fr; gap: 1px 6px; }
+  .machine .meta b { color: var(--text); font-weight: 500; }
+  .machine .meta b.drift { color: var(--amber); }
+  .machine .outbox.hot { color: var(--amber); }
+  .machine button { margin-top: 8px; width: 100%; padding: 3px 6px; font-size: 11px; }
+  .machine .bar { height: 3px; background: #1c2836; border-radius: 2px; margin-top: 6px; overflow: hidden; }
+  .machine .bar > i { display: block; height: 100%; background: var(--blue); }
+
+  .ota .step { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px dashed var(--line); font-size: 12px; }
+  .ota .step:last-of-type { border-bottom: 0; }
+  .ota .step .name { flex: 1; }
+  .ota .step .rate { font-family: var(--mono); color: var(--muted); font-size: 11px; }
+  .tag { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; padding: 2px 6px; border-radius: 4px; background: #1b2634; color: var(--muted); }
+  .tag.installing { background: #0d2f45; color: var(--blue); }
+  .tag.passed { background: #10312a; color: var(--green); }
+  .tag.halted, .tag.failed { background: #3a1416; color: var(--red); }
+  .tag.waiting { background: #2b2410; color: var(--amber); }
+
+  .audit { margin-top: 12px; }
+  .log { max-height: 300px; overflow-y: auto; font-family: var(--mono); font-size: 11.5px; }
+  .log .line { display: grid; grid-template-columns: 84px 132px 62px minmax(0,1fr); gap: 8px; padding: 3px 0; border-bottom: 1px solid #131c27; }
+  .log .t { color: var(--muted); }
+  .log .k { font-weight: 600; }
+  .log .k.ok { color: var(--green); }
+  .log .k.dup { color: var(--purple); }
+  .log .k.warn { color: var(--amber); }
+  .log .k.err { color: var(--red); }
+  .log .k.sync { color: var(--blue); }
+  .log .m { color: var(--muted); }
+  .log .d { color: #b9c8d8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .hint { border: 1px solid #1b3a4d; background: #0c1d27; border-radius: 9px; padding: 10px 12px; font-size: 12px; color: #b6d6e6; margin-bottom: 12px; }
+  .hint ol { margin: 6px 0 0; padding-left: 18px; }
+  .hint li { margin: 2px 0; }
+  .hint b { color: #e8f7ff; }
+  .promos { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .promo { display: flex; align-items: center; gap: 8px; font-size: 11.5px; border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; background: #0d1520; }
+  .promo .id { font-family: var(--mono); color: var(--blue); }
+  .promo .txt { flex: 1; color: #b9c8d8; }
+  .promo button { padding: 1px 6px; font-size: 10px; }
+  .muted { color: var(--muted); }
+  .toast { position: fixed; right: 18px; bottom: 18px; background: #2a1315; border: 1px solid #6b2323; color: #ffd9d9; padding: 10px 14px; border-radius: 8px; font-size: 12px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="dot"></span>
+    <h1>SnackBox · Fleet Control</h1>
+    <small>20 simulated machines · timed promos · durable outbox · OTA health gate</small>
+  </div>
+  <div class="spacer"></div>
+  <div class="chip" id="chip-store">storage <b>…</b></div>
+  <div class="chip" id="chip-live">live <b>…</b></div>
+  <button class="ghost" onclick="act('/api/reset', {})">Reset demo</button>
+</header>
+
+<div class="hint">
+  <b>Try this:</b>
+  <ol>
+    <li>Create the promo (20% off drinks, Fri 15:00–17:00), then hit <b>+15m</b> — online machines drop the price, offline ones keep the old one.</li>
+    <li><b>Take 5 offline</b>, wait ~20s while they sell, then <b>All online</b> — the outboxes drain and cloud stock catches up.</li>
+    <li>Flip <b>flaky 3G</b> — responses get lost <i>after</i> commit; <b>duplicates blocked</b> climbs and revenue never double counts.</li>
+    <li>Start an OTA with <b>inject bad build</b> — the canary fails health checks and the rollout halts at 10%.</li>
+  </ol>
+</div>
+
+<section class="grid controls">
+  <div class="card">
+    <h2>Simulated clock</h2>
+    <div class="clock" id="clock">—<small id="clock-sub">loading</small></div>
+    <div class="row" style="margin-top:10px">
+      <button onclick="act('/api/clock', {jumpMinutes: 15})">+15m</button>
+      <button onclick="act('/api/clock', {jumpMinutes: 60})">+1h</button>
+      <button onclick="act('/api/clock', {jumpMinutes: 720})">+12h</button>
+      <button onclick="act('/api/clock', {jumpMinutes: -60})">-1h</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Timed promo</h2>
+    <div class="row">
+      <label>Scope</label>
+      <select id="p-cat">
+        <option value="drinks">Drinks</option>
+        <option value="snacks">Snacks</option>
+        <option value="all">Everything</option>
+      </select>
+      <label style="min-width:auto">Off</label>
+      <input id="p-disc" type="number" min="1" max="90" value="20" /> %
+    </div>
+    <div class="row">
+      <label>Window</label>
+      <input id="p-start" type="time" value="15:00" />
+      <span class="muted">→</span>
+      <input id="p-end" type="time" value="17:00" />
+      <select id="p-day">
+        <option value="5" selected>Fri</option>
+        <option value="1">Mon</option><option value="2">Tue</option><option value="3">Wed</option>
+        <option value="4">Thu</option><option value="6">Sat</option><option value="0">Sun</option>
+      </select>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="primary" onclick="createPromo()">Create promo</button>
+      <span class="muted" id="p-hint">bumps config version</span>
+    </div>
+    <div class="promos" id="promos"></div>
+  </div>
+
+  <div class="card">
+    <h2>Network chaos</h2>
+    <div class="row">
+      <label class="switch">
+        <input type="checkbox" id="chaos" onchange="act('/api/chaos', {ackDrop: this.checked})" />
+        <span>Flaky 3G — drop 50% of ACKs <span class="muted">(after commit)</span></span>
+      </label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button onclick="act('/api/fleet', {action:'drop-random', count:5})">Take 5 offline</button>
+      <button onclick="act('/api/fleet', {action:'all-offline'})">All offline</button>
+      <button onclick="act('/api/fleet', {action:'all-online'})">All online</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <span class="muted" style="font-size:11.5px">Offline machines keep selling into their own outbox; nothing is lost.</span>
+    </div>
+  </div>
+</section>
+
+<section class="grid kpis">
+  <div class="kpi card"><div class="label">Revenue (accepted)</div><div class="value" id="k-rev">—</div><div class="sub" id="k-rev-sub">—</div></div>
+  <div class="kpi card"><div class="label">Sales accepted</div><div class="value" id="k-sales">—</div><div class="sub" id="k-sales-sub">—</div></div>
+  <div class="kpi card hot"><div class="label">Duplicates blocked</div><div class="value" id="k-dup">—</div><div class="sub" id="k-dup-sub">—</div></div>
+  <div class="kpi card warn"><div class="label">Unsynced events</div><div class="value" id="k-unsynced">—</div><div class="sub">sitting in machine outboxes</div></div>
+  <div class="kpi card"><div class="label">Machines online</div><div class="value" id="k-online">—</div><div class="sub" id="k-online-sub">—</div></div>
+  <div class="kpi card"><div class="label">Config version</div><div class="value" id="k-config">—</div><div class="sub" id="k-config-sub">—</div></div>
+</section>
+
+<section class="grid main">
+  <div class="card">
+    <h2>Fleet</h2>
+    <div class="grid fleet" id="fleet"></div>
+  </div>
+
+  <div class="card ota">
+    <h2>Safe OTA rollout</h2>
+    <div class="row" style="margin-bottom:8px">
+      <input id="ota-ver" value="1.5.0" style="width:88px; font-family:var(--mono)" />
+      <label class="switch"><input type="checkbox" id="ota-bad" /> <span>inject bad build</span></label>
+    </div>
+    <div class="row" style="margin-bottom:8px">
+      <button class="primary" id="ota-start" onclick="startOta()">Start rollout</button>
+      <button class="danger" onclick="act('/api/ota/abort', {})">Abort</button>
+    </div>
+    <div id="ota-state" class="muted" style="font-size:12px; margin-bottom:6px">no rollout yet</div>
+    <div id="ota-steps"></div>
+    <div class="muted" style="font-size:11px; margin-top:10px">
+      Gate: halt if &gt;10% of a cohort fails health checks. Machines install only while online.
+    </div>
+  </div>
+</section>
+
+<section class="card audit">
+  <h2>Event audit log</h2>
+  <div class="log" id="log"></div>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let S = null;
+let toastTimer = null;
+
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+async function act(path, body) {
+  try {
+    const r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
+    const data = await r.json();
+    if (!r.ok) toast(data.error || ('HTTP ' + r.status));
+    await poll();
+    return data;
+  } catch (e) {
+    toast('request failed: ' + e.message);
+  }
+}
+
+function hhmm(value) {
+  const [h, m] = value.split(':').map(Number);
+  return h * 60 + (m || 0);
+}
+
+function createPromo() {
+  return act('/api/promos', {
+    category: $('p-cat').value,
+    discountPct: Number($('p-disc').value),
+    startMin: hhmm($('p-start').value),
+    endMin: hhmm($('p-end').value) || 1440,
+    days: [Number($('p-day').value)],
+  });
+}
+
+function startOta() {
+  return act('/api/ota/start', { version: $('ota-ver').value.trim() || '1.5.0', badFirmware: $('ota-bad').checked });
+}
+
+function money(cents) {
+  return '$' + (cents / 100).toFixed(2);
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+function render() {
+  if (!S) return;
+  $('clock').firstChild.nodeValue = S.sim.label;
+  $('clock-sub').textContent = S.sim.speed + 'x real time · ' + S.machines.length + ' machines';
+  $('chip-store').innerHTML = 'storage <b>' + esc(S.storage) + '</b>';
+  $('chip-live').className = 'chip ok';
+  $('chip-live').innerHTML = 'live <b>tick ' + new Date().toLocaleTimeString() + '</b>';
+
+  const k = S.kpi;
+  $('k-rev').textContent = money(k.revenueCents);
+  $('k-rev-sub').textContent = k.unitsSold + ' units sold';
+  $('k-sales').textContent = k.salesAccepted;
+  $('k-sales-sub').textContent = (k.ackDrops || 0) + ' ACKs dropped · ' + (k.lateAccepted || 0) + ' late';
+  $('k-dup').textContent = k.duplicatesBlocked;
+  $('k-dup-sub').textContent = k.duplicatesBlocked ? 'retries deduped by event_id' : 'enable flaky 3G to see it';
+  $('k-unsynced').textContent = k.unsynced;
+  $('k-online').textContent = k.online + '/' + S.machines.length;
+  $('k-online-sub').textContent = k.faulted ? k.faulted + ' faulted' : (k.lowStock + ' low stock');
+  $('k-config').textContent = 'v' + k.configVersion;
+  $('k-config-sub').textContent = S.promos.length + ' active promo(s)';
+
+  $('chaos').checked = !!S.chaos.ackDrop;
+
+  $('promos').innerHTML = S.promos.length
+    ? S.promos.map((p) => `
+      <div class="promo">
+        <span class="id">${esc(p.id)}</span>
+        <span class="txt">${esc(p.label)}</span>
+        <button onclick="act('/api/promos/revoke', {id:'${esc(p.id)}'})">revoke</button>
+      </div>`).join('')
+    : '<div class="muted" style="font-size:11.5px">no promo yet — machines charge list price</div>';
+
+  $('fleet').innerHTML = S.machines.map((m) => {
+    const cls = m.faulted ? 'faulted' : (m.online ? 'online' : 'offline');
+    const badge = m.faulted ? '<span class="badge fault">faulted</span>' : (m.online ? '<span class="badge on">online</span>' : '<span class="badge off">offline</span>');
+    const install = m.installPct && m.installPct < 100 ? `<div class="bar"><i style="width:${m.installPct}%"></i></div>` : '';
+    return `
+      <div class="machine ${cls}">
+        <div class="mid">${m.id} ${badge}</div>
+        <div class="meta">
+          <span>stock <b>${m.localUnits}</b></span>
+          <span class="outbox ${m.outbox ? 'hot' : ''}">outbox <b>${m.outbox}</b></span>
+          <span>cloud <b class="${m.cloudUnits === m.localUnits ? '' : 'drift'}">${m.cloudUnits}</b></span>
+          <span>cfg <b>v${m.configVersion}</b></span>
+          <span>fw <b>${m.fw}</b></span>
+        </div>
+        ${install}
+        <button onclick="act('/api/machines/online', {id:'${m.id}', online: ${m.online ? 'false' : 'true'}})">${m.online ? 'go offline' : 'bring online'}</button>
+      </div>`;
+  }).join('');
+
+  const o = S.ota;
+  const labels = { idle: 'no rollout yet', rolling: 'rolling out ' + o.version, halted: 'HALTED — ' + (o.haltedReason || ''), done: 'fleet on ' + o.version };
+  $('ota-state').innerHTML = '<span class="tag ' + (o.state === 'rolling' ? 'installing' : o.state === 'halted' ? 'halted' : o.state === 'done' ? 'passed' : 'waiting') + '">' + esc(o.state) + '</span> ' + esc(labels[o.state] || '');
+  $('ota-start').disabled = o.state === 'rolling';
+  $('ota-steps').innerHTML = (o.steps || []).map((s) => `
+    <div class="step">
+      <span class="name">${esc(s.label)} <span class="muted">· ${s.size} machines</span></span>
+      <span class="rate">${s.failRate == null ? '—' : s.failRate + '% fail'}</span>
+      <span class="tag ${esc(s.status)}">${esc(s.status)}</span>
+    </div>`).join('') || '<div class="muted" style="font-size:11.5px">canary → 40% → rest, with a health gate between cohorts</div>';
+
+  $('log').innerHTML = S.audit.map((e) => `
+    <div class="line">
+      <span class="t">${esc(e.at)}</span>
+      <span class="k ${esc(e.kind)}">${esc(e.label)}</span>
+      <span class="m">${esc(e.machine || '—')}</span>
+      <span class="d" title="${esc(e.detail)}">${esc(e.detail)}</span>
+    </div>`).join('');
+}
+
+async function poll() {
+  try {
+    const r = await fetch('/api/state', { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    S = await r.json();
+    render();
+  } catch (e) {
+    $('chip-live').className = 'chip bad';
+    $('chip-live').innerHTML = 'live <b>reconnecting</b>';
+  }
+}
+
+poll();
+setInterval(poll, 1000);
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+services:
+  snackbox:
+    build: .
+    image: snackbox-demo
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      DB_PATH: /data/snackbox.db
+      SIM_SPEED: 120
+    volumes:
+      - snackbox-data:/data
+    restart: unless-stopped
+
+volumes:
+  snackbox-data:
