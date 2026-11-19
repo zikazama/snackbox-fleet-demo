@@ -12,6 +12,11 @@ import { world, SIM_SPEED } from './lib/world.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 8080);
 const PAGE = fs.readFileSync(path.join(here, 'public', 'index.html'));
+const STATIC = new Map([
+  ['/favicon.svg', { file: 'favicon.svg', type: 'image/svg+xml' }],
+  ['/shim.js', { file: 'shim.js', type: 'text/javascript; charset=utf-8' }],
+  ['/engine.js', { file: 'engine.js', type: 'text/javascript; charset=utf-8' }],
+]);
 
 // Background tick: the sim also advances on every request, this just keeps it
 // alive between page loads (and makes `curl` demos behave like the UI).
@@ -38,6 +43,16 @@ const server = http.createServer((req, res) => {
 
   if (url.pathname === '/' || url.pathname === '/index.html') {
     return send(res, 200, PAGE);
+  }
+
+  const asset = STATIC.get(url.pathname);
+  if (asset) {
+    try {
+      const body = fs.readFileSync(path.join(here, 'public', asset.file));
+      return send(res, 200, body, { 'content-type': asset.type });
+    } catch {
+      return send(res, 404, 'not found');
+    }
   }
 
   if (url.pathname.startsWith('/api/')) {

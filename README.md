@@ -6,11 +6,12 @@ gate**.
 
 One process, no dependencies: 20 simulated vending machines, a cloud API, and a dashboard.
 
-- **Live demo:** https://zikazama.github.io/snackbox-fleet-demo/ — hosted on GitHub Pages as a
-  **static in-browser build**: the same simulator and cloud logic runs in the page
-  (`public/engine.js`), the store is in-memory (`browser-memory` chip), and the simulation clock
-  only advances while the tab is open and polling. For the *real* server build — SQLite
-  (`node:sqlite`) on disk, see `lib/db.js` — run it locally with one command (see "How it runs").
+- **Live demo:** https://snackbox-fleet-demo-173461988236.asia-southeast1.run.app — Google Cloud
+  Run (project "My First Project", `project-5869a4b9-e007-42d4-b48`, `asia-southeast1`). The real
+  server build: one Node process, `node:sqlite` (WAL) on disk, simulation and the dashboard in the
+  page, `GET /api/state` live. Scales to zero when idle, so the first load can take a second or two.
+  A static in-browser export (no server, in-memory store, clock advances only while a tab polls) is
+  also hosted at https://zikazama.github.io/snackbox-fleet-demo/ as a fallback.
 - **Local, one command:** `docker compose up --build`, or `npm start` / `make run` if you have
   Node 22.5+.
 
@@ -158,12 +159,14 @@ Key implementation decisions:
 
 ## Deployment
 
-- **Local / Docker (real build):** source of truth for the HTTP contract. SQLite on disk, the
+- **Google Cloud Run (primary live URL):** deployed from source with `gcloud run deploy
+  snackbox-fleet-demo --source . --region asia-southeast1` (Cloud Build builds the `Dockerfile`).
+  Allows unauthenticated access; memory 512 Mi. Redeploy after pushing changes with the same
+  command.
+- **Local / Docker (real build):** same artifact as the live Cloud Run service. SQLite on disk, the
   simulator and the API in one Node process.
-- **GitHub Pages (what the link opens):** static export of the same logic. `public/index.html`
-  is identical to the local dashboard; on Pages, `public/shim.js` serves `/api/*` in-process from
-  `public/engine.js`. Uploading to the repo and enabling Pages from `main` is all the deployment
-  is — no secrets, no servers.
+- **GitHub Pages (fallback):** static export of the same logic — `public/index.html` identical to
+  the local dashboard, with `public/shim.js` answering `/api/*` in-process from `public/engine.js`.
 - **Serverless entrypoints kept for reference:** `api/index.js` (Vercel), `netlify/functions/api.mjs`.
   Neither was deployable with the accounts available: GCP `impactful-web-512106-c6` is shut down
   and the `fauzi.fadman@gmail.com` account has no billing account; the Vercel team is blocked by
