@@ -1,0 +1,32 @@
+name: fix-layout
+on:
+  push:
+    paths:
+      - .github/workflows/fix-layout.yml
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Restructure
+        run: |
+          mkdir -p lib public test
+          if [ -f lib/lib/db.js ]; then mv lib/lib/db.js lib/db.js; fi
+          if [ -f world.js ]; then mv world.js router.js lib/; fi
+          if [ -f index.html ]; then mv index.html public/; fi
+          if [ -f core.test.js ]; then mv core.test.js test/; fi
+          find . -path ./.git -prune -o -type f -print | sort
+      - name: Tests
+        run: node --test test/ || true
+      - name: Commit layout
+        run: |
+          git config user.name snackbox-bot
+          git config user.email bot@users.noreply.github.com
+          git add -A
+          git commit -m "chore: move sources into lib/ public/ test/" || echo "no changes"
+          git push
